@@ -34,7 +34,7 @@ def get_default_h() -> argparse.Namespace:
   # data
   h_parser.add_argument('--d', type=int, default=2)
   h_parser.add_argument('--M', type=int, default=None)
-  h_parser.add_argument('--dataset', type=str, default=None)
+  h_parser.add_argument('--dataset', type=str, default='gaussians')
   h_parser.add_argument('--missing_data_pct', type=float, default=0.0)
 
   # for the causal discovery experiment
