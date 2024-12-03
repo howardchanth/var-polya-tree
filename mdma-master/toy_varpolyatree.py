@@ -4,10 +4,11 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
-import torch as t
+import torch
 import mdma.fit as fit
 import mdma.utils as utils
 from vpt.polya_tree import PolyaTree
+from backbone_net import MLP
 
 save_plots = True
 h = fit.get_default_h()
@@ -127,12 +128,17 @@ for vars in [[0, 1], [1, 2], [0, 2]]:
 batch_size = 1000
 level = 4
 epochs = 100
+
+# build a MLP to project features to [0, 1]
+back_net = MLP(dataset.shape[1], [50, 50], dataset.shape[1])
+
 model = PolyaTree(level, dataset.shape[1])
 train_loader, test_loader, val_loader = utils.create_loaders([dataset, None, None], batch_size)
 for _ in range(epochs):
     for x in train_loader:
         x = x[0]
-        likelihood = model(x)
+        features = back_net(x)
+        likelihood = model(features)
 
 # h = fit.get_default_h()
 # h.batch_size = batch_size
