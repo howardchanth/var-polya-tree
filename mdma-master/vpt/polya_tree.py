@@ -1,3 +1,5 @@
+import sys
+
 import torch
 from torch import nn
 from torch.distributions import Beta, MultivariateNormal
@@ -31,8 +33,10 @@ class Tree:
         self.lowers, self.uppers = self.get_intervals()
 
     def create_nodes(self, betas):
-
-        nodes = [Node(beta, self.dim, self.device) for beta in betas]
+        nodes = []
+        for j in range(2 ** self.L - 1):
+            nodes.append(Node(betas[:,j], self.dim, self.device))
+        #nodes = [Node(beta, self.dim, self.device) for beta in betas]
         n_nodels = len(nodes)
         # Initialize root
         nodes[0].left = nodes[1]
@@ -83,8 +87,10 @@ class PolyaTree(nn.Module):
         super(PolyaTree, self).__init__()
 
         # size should be (dim, 2 ** L - 1)
-        self.shapes = nn.Parameter(torch.ones(2 ** L - 1, dim))
-        self.scales = nn.Parameter(torch.ones(2 ** L - 1, dim))
+        #self.shapes = nn.Parameter(torch.ones(2 ** L - 1, dim))
+        #self.scales = nn.Parameter(torch.ones(2 ** L - 1, dim))
+        self.shapes = nn.Parameter(torch.ones(dim, 2 ** L - 1))
+        self.scales = nn.Parameter(torch.ones(dim, 2 ** L - 1))
 
         self.prior_shape = prior_shape
         self.prior_scale = prior_scale
@@ -114,9 +120,8 @@ class PolyaTree(nn.Module):
 
         # Compute likelihood
         a_s = torch.logical_and(within_lower, within_upper).sum(0)
-        likelihood = a_s * torch.log(samples).sum()
-
-        return likelihood
+        likelihood = (a_s * torch.log(samples)).sum()
+        return - likelihood/len(x)
 
 
     def kl(self):

@@ -9,6 +9,7 @@ import mdma.fit as fit
 import mdma.utils as utils
 from vpt.polya_tree import PolyaTree
 from backbone_net import MLP
+import torch.optim as optim
 
 save_plots = True
 h = fit.get_default_h()
@@ -63,66 +64,66 @@ elif h.dataset == 'checkerboard':
   dataset = dataset * 8 - 4
   zlim = [-4, 4]
 
-# Plot data 3d scatter
-plt.figure()
-n_pts_to_plot = 2000
-ax = plt.axes(projection='3d')
-lenX = len(dataset)
-ax.scatter3D(dataset[:n_pts_to_plot, 0],
-             dataset[:n_pts_to_plot, 1],
-             dataset[:n_pts_to_plot, 2],
-             s=1)
-if h.dataset == 'gaussians':
-  ax.view_init(elev=30., azim=55)
-  ax.zaxis.set_rotate_label(False)
-  ax.set_zlabel('$x_3$', labelpad=-12, rotation=90)
-elif h.dataset == 'spirals':
-  ax.zaxis.set_rotate_label(False)
-  ax.set_zlabel('$x_3$', labelpad=-12, rotation=90)
-  ax.view_init(elev=20., azim=10)
-else:
-  ax.zaxis.set_rotate_label(False)
-  ax.set_zlabel('$x_3$', labelpad=-12, rotation=270)
+# # Plot data 3d scatter
+# plt.figure()
+# n_pts_to_plot = 2000
+# ax = plt.axes(projection='3d')
+# lenX = len(dataset)
+# ax.scatter3D(dataset[:n_pts_to_plot, 0],
+#              dataset[:n_pts_to_plot, 1],
+#              dataset[:n_pts_to_plot, 2],
+#              s=1)
+# if h.dataset == 'gaussians':
+#   ax.view_init(elev=30., azim=55)
+#   ax.zaxis.set_rotate_label(False)
+#   ax.set_zlabel('$x_3$', labelpad=-12, rotation=90)
+# elif h.dataset == 'spirals':
+#   ax.zaxis.set_rotate_label(False)
+#   ax.set_zlabel('$x_3$', labelpad=-12, rotation=90)
+#   ax.view_init(elev=20., azim=10)
+# else:
+#   ax.zaxis.set_rotate_label(False)
+#   ax.set_zlabel('$x_3$', labelpad=-12, rotation=270)
+#
+# ax.set_xlabel('$x_1$', labelpad=-12)
+# ax.set_ylabel('$x_2$', labelpad=-12)
+# ax.set_title('Training data')
+# ax.xaxis.set_ticklabels([])
+# ax.yaxis.set_ticklabels([])
+# ax.zaxis.set_ticklabels([])
+# plt.locator_params(nbins=3)
+# if save_plots:
+#   plt.savefig(save_dir + '_'.join(['3d', h.dataset, 'data']) + '.pdf')
+# plt.show()
 
-ax.set_xlabel('$x_1$', labelpad=-12)
-ax.set_ylabel('$x_2$', labelpad=-12)
-ax.set_title('Training data')
-ax.xaxis.set_ticklabels([])
-ax.yaxis.set_ticklabels([])
-ax.zaxis.set_ticklabels([])
-plt.locator_params(nbins=3)
-if save_plots:
-  plt.savefig(save_dir + '_'.join(['3d', h.dataset, 'data']) + '.pdf')
-plt.show()
-
-# Plot 2d histogram of data
-ub = 4
-lb = -4
-grid_res = 60
-lims = [[lb, ub], [lb, ub], zlim]
-ax = plt.axes(projection=None)
-
-for vars in [[0, 1], [1, 2], [0, 2]]:
-  hist_data = np.histogram2d(dataset[:, vars[0]],
-                             dataset[:, vars[1]],
-                             grid_res,
-                             range=[lims[vars[0]], lims[vars[1]]])
-  lim0 = lims[vars[0]]
-  lim1 = lims[vars[1]]
-  plt.imshow(hist_data[0].transpose(),
-             extent=[lim0[0], lim0[1], lim1[0], lim1[1]],
-             aspect=(lim0[1] - lim0[0]) / (lim1[1] - lim1[0]))
-  plt.xlabel('$x_' + str(vars[0] + 1) + '$')
-  plt.ylabel('$x_' + str(vars[1] + 1) + '$')
-  plt.xticks([])
-  plt.yticks([])
-  plt.title('Training data')
-  if save_plots:
-    plt.savefig(save_dir + '_'.join(
-        ['3d', h.dataset, 'data_2d',
-         str(vars[0] + 1),
-         str(vars[1] + 1)]) + '.pdf')
-  plt.show()
+# # Plot 2d histogram of data
+# ub = 4
+# lb = -4
+# grid_res = 60
+# lims = [[lb, ub], [lb, ub], zlim]
+# ax = plt.axes(projection=None)
+#
+# for vars in [[0, 1], [1, 2], [0, 2]]:
+#   hist_data = np.histogram2d(dataset[:, vars[0]],
+#                              dataset[:, vars[1]],
+#                              grid_res,
+#                              range=[lims[vars[0]], lims[vars[1]]])
+#   lim0 = lims[vars[0]]
+#   lim1 = lims[vars[1]]
+#   plt.imshow(hist_data[0].transpose(),
+#              extent=[lim0[0], lim0[1], lim1[0], lim1[1]],
+#              aspect=(lim0[1] - lim0[0]) / (lim1[1] - lim1[0]))
+#   plt.xlabel('$x_' + str(vars[0] + 1) + '$')
+#   plt.ylabel('$x_' + str(vars[1] + 1) + '$')
+#   plt.xticks([])
+#   plt.yticks([])
+#   plt.title('Training data')
+#   if save_plots:
+#     plt.savefig(save_dir + '_'.join(
+#         ['3d', h.dataset, 'data_2d',
+#          str(vars[0] + 1),
+#          str(vars[1] + 1)]) + '.pdf')
+#   plt.show()
 
 # Create model and fit
 batch_size = 1000
@@ -131,14 +132,24 @@ epochs = 100
 
 # build a MLP to project features to [0, 1]
 back_net = MLP(dataset.shape[1], [50, 50], dataset.shape[1])
-
 model = PolyaTree(level, dataset.shape[1])
+opt = optim.Adam([
+    {'params': back_net.parameters()},
+    {'params': model.parameters()},
+], lr=1e-3, weight_decay=1e-5)
+
 train_loader, test_loader, val_loader = utils.create_loaders([dataset, None, None], batch_size)
 for _ in range(epochs):
     for x in train_loader:
+        opt.zero_grad()
         x = x[0]
         features = back_net(x)
         likelihood = model(features)
+        likelihood.backward()
+        opt.step()
+
+
+
 
 # h = fit.get_default_h()
 # h.batch_size = batch_size
