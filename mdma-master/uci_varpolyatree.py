@@ -1,5 +1,6 @@
 import torch as t
 import numpy as np
+from opt_einsum.backends import torch
 
 from experiments.UCI.gas import GAS
 from experiments.UCI.hepmass import HEPMASS
@@ -10,7 +11,7 @@ import argparse
 from vpt.polya_tree import PolyaTree
 from backbone_net import MLP
 import torch.optim as optim
-
+import sys
 def load_dataset(h):
     h.dataset = 'gas'
     if h.dataset == 'gas':
@@ -47,6 +48,16 @@ def load_dataset(h):
     return [data_loader_train, data_loader_valid, data_loader_test], dataset.n_dims, len(dataset_train), len(dataset_valid)
 
 
+def eval(backnet, model, eval_dataloader, device):
+    with t.no_grad():
+        val_nll = 0
+        for batch_idx, batch in enumerate(eval_dataloader):
+            batch_data = batch[0].to(device)
+            features = backnet(batch_data)
+            val_nll += model(features)
+    return val_nll/ (batch_idx + 1)
+
+
 
 
 if __name__ == "__main__":
@@ -62,8 +73,20 @@ if __name__ == "__main__":
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--weight_decay', type=float, default=5e-4)
 
+    # eval and test
+    parser.add_argument('--print_every', type=int, default=200)
+
+
+    # seed and device
+    parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--device', type=str, default='cpu')
+
+
+
     # Parse the arguments
     args = parser.parse_args()
+
+    device = t.device(args.device)
 
     data, n_dim, n_train, n_val = load_dataset(args)
     print('load dataset: {}, dim: {}, n train:{}, n val: {}'.format(args.dataset, n_dim, n_train, n_val))
@@ -71,24 +94,42 @@ if __name__ == "__main__":
     train_loader, valid_loader, test_loader = data
 
     level = 4
-    back_net = MLP(n_dim, [100, 100], n_dim)
-    model = PolyaTree(level, n_dim)
+    back_net = MLP(n_dim, [100, 100], n_dim).to(device)
+    model = PolyaTree(level, n_dim).to(device)
 
     opt = optim.Adam([
         {'params': back_net.parameters()},
         {'params': model.parameters()},
     ], lr=args.lr, weight_decay=args.weight_decay)
 
+    scheduler = t.optim.lr_scheduler.ReduceLROnPlateau(opt,
+                                                       verbose=True,
+                                                       patience=30,
+                                                       min_lr=1e-3,
+                                                       factor=0.5)
+
+    inter = 0
     for _ in range(args.epochs):
         for x in train_loader:
             opt.zero_grad()
-            x = x[0]
+            x = x[0].to(device)
             features = back_net(x)
             likelihood = model(features)
             likelihood.backward()
             opt.step()
-            print(likelihood.item())
 
+            if inter % args.print_every == 0:
+                print('Iteration {}, train nll: {}'.format(inter, likelihood.item()))
+
+            inter += 1
+
+        val_nll = eval(back_net, model, test_loader, device)
+        print('Validation nll: {}'.format(val_nll.item()))
+
+        test_nll = eval(back_net, model, test_loader, device)
+        print('Test nll: {}'.format(test_nll.item()))
+
+        scheduler.step(val_nll)
 
 
 

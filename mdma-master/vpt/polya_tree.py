@@ -5,6 +5,8 @@ from torch import nn
 from torch.distributions import Beta, MultivariateNormal
 from torch import digamma, lgamma
 
+def log1p_exp(x):
+    return torch.log1p(torch.exp(x))
 
 class Node:
     def __init__(self, beta, dim, device):
@@ -107,16 +109,24 @@ class PolyaTree(nn.Module):
         x: (n, dim), each entry normalized to [0,1]
         output: the log-likelihood of the model --- need to combine with object specific loss
         """
+        # positive constraints
+        shapes, scales = log1p_exp(self.shapes), log1p_exp(self.scales)
+
         # Sample beta intervals
-        samples = Beta(self.shapes, self.scales).rsample()
+        samples = Beta(shapes, scales).rsample()
 
         tree = Tree(self.L, samples, self.dim, samples.device)
         lowers = torch.stack(tree.lowers, dim=1)
         uppers = torch.stack(tree.uppers, dim=1)
 
         # Compute indicators (n, dim, 2 ** L - 1)
-        within_lower = x.transpose(2,1) >= lowers.unsqueeze(0)
-        within_upper = x.transpose(2,1) <= uppers.unsqueeze(0)
+        if x.dim() == 2:
+            x = x.unsqueeze(-1)
+        elif x.shape[1] != self.dim:
+            x = x.transpose(2,1)
+
+        within_lower = x >= lowers.unsqueeze(0)
+        within_upper = x <= uppers.unsqueeze(0)
 
         # Compute likelihood
         a_s = torch.logical_and(within_lower, within_upper).sum(0)

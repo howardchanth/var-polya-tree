@@ -19,6 +19,7 @@ def fit_uci():
 
 
 def load_dataset(h):
+  h.dataset = 'gas'
   if h.dataset == 'gas':
     dataset = GAS(h.data_dir + '/gas/ethylene_CO.pickle')
   elif h.dataset == 'hepmass':

@@ -12,7 +12,7 @@ import json
 import os
 import time
 from typing import List
-
+import sys
 if t.cuda.is_available():
   t.set_default_tensor_type('torch.cuda.FloatTensor')
   device = "cuda"
@@ -183,6 +183,7 @@ def fit_mdma(
   for epoch in range(start_epoch, h.n_epochs):
     for batch_idx, batch in enumerate(train_loader):
       batch_data = batch[0][:, 0, :].to(device)
+
       if h.missing_data_pct > 0:
         missing_data_mask = batch[0][:, 1, :].to(device)
 
