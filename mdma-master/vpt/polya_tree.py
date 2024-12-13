@@ -129,9 +129,9 @@ class PolyaTree(nn.Module):
         within_upper = x <= uppers.unsqueeze(0)
 
         # Compute likelihood
-        a_s = torch.logical_and(within_lower, within_upper).sum(0)
-        likelihood = (a_s * torch.log(samples)).sum()
-        return - likelihood/len(x)
+        a_s = torch.logical_and(within_lower, within_upper)
+        likelihood = torch.sum((a_s * torch.log(samples)), dim=(1,2))
+        return likelihood.mean()
 
 
     def kl(self):

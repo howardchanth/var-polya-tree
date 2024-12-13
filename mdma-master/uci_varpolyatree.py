@@ -1,6 +1,5 @@
 import torch as t
 import numpy as np
-from opt_einsum.backends import torch
 
 from experiments.UCI.gas import GAS
 from experiments.UCI.hepmass import HEPMASS
@@ -48,15 +47,23 @@ def load_dataset(h):
     return [data_loader_train, data_loader_valid, data_loader_test], dataset.n_dims, len(dataset_train), len(dataset_valid)
 
 
-def eval(backnet, model, eval_dataloader, device):
+def eval_val(backnet, model, eval_dataloader, device):
     with t.no_grad():
         val_nll = 0
         for batch_idx, batch in enumerate(eval_dataloader):
             batch_data = batch[0].to(device)
             features = backnet(batch_data)
-            val_nll += model(features)
+            val_nll += - model(features)
     return val_nll/ (batch_idx + 1)
 
+def eval_test(backnet, model, eval_dataloader, device):
+    with t.no_grad():
+        log_like = 0
+        for batch_idx, batch in enumerate(eval_dataloader):
+            batch_data = batch[0].to(device)
+            features = backnet(batch_data)
+            log_like += model(features)
+    return log_like/ (batch_idx + 1)
 
 
 
@@ -69,9 +76,9 @@ if __name__ == "__main__":
     parser.add_argument('--data_dir', type=str, default='data/')
 
     # train param
-    parser.add_argument('--epochs', type=int, default=100)
+    parser.add_argument('--epochs', type=int, default=500)
     parser.add_argument('--lr', type=float, default=1e-3)
-    parser.add_argument('--weight_decay', type=float, default=5e-4)
+    parser.add_argument('--weight_decay', type=float, default=1e-4)
 
     # eval and test
     parser.add_argument('--print_every', type=int, default=200)
@@ -86,7 +93,10 @@ if __name__ == "__main__":
     # Parse the arguments
     args = parser.parse_args()
 
-    device = t.device(args.device)
+    if args.device == 'cpu':
+        device = t.device(args.device)
+    else:
+        device = t.device('cuda:{}'.format(args.device))
 
     data, n_dim, n_train, n_val = load_dataset(args)
     print('load dataset: {}, dim: {}, n train:{}, n val: {}'.format(args.dataset, n_dim, n_train, n_val))
@@ -94,7 +104,13 @@ if __name__ == "__main__":
     train_loader, valid_loader, test_loader = data
 
     level = 4
-    back_net = MLP(n_dim, [100, 100], n_dim).to(device)
+    back_net = MLP(n_dim, [
+        16,
+        16,
+        # 128, 256, 128,
+        # 64
+        ], n_dim
+    ).to(device)
     model = PolyaTree(level, n_dim).to(device)
 
     opt = optim.Adam([
@@ -113,21 +129,22 @@ if __name__ == "__main__":
         for x in train_loader:
             opt.zero_grad()
             x = x[0].to(device)
+            # x = x.sigmoid()
             features = back_net(x)
-            likelihood = model(features)
-            likelihood.backward()
+            nll = model(features)
+            nll.backward()
             opt.step()
 
             if inter % args.print_every == 0:
-                print('Iteration {}, train nll: {}'.format(inter, likelihood.item()))
+                print('Iteration {}, train nll: {}'.format(inter, nll.item()))
 
             inter += 1
 
-        val_nll = eval(back_net, model, test_loader, device)
+        val_nll = eval_val(back_net, model, test_loader, device)
         print('Validation nll: {}'.format(val_nll.item()))
 
-        test_nll = eval(back_net, model, test_loader, device)
-        print('Test nll: {}'.format(test_nll.item()))
+        test_loglike = eval_test(back_net, model, test_loader, device)
+        print('Test log likelihood: {}'.format(test_loglike.item()))
 
         scheduler.step(val_nll)
 

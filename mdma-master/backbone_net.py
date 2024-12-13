@@ -21,7 +21,7 @@ class MLP(nn.Module):
 
     def forward(self, x):
         for layer in self.layers:
-            x = F.relu(layer(x))
+            x = layer(x) * 5
         x = sigmoid_projection(x)
         return x
 

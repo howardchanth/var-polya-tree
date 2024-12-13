@@ -344,6 +344,7 @@ class MDMA(nn.Module):
     lk = self.contract(phidots, inds)
     return lk, fm
 
+
   def CP_contraction(self, T: t.Tensor) -> t.Tensor:
     """ Compute CP contraction.
 
