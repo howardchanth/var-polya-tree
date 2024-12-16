@@ -115,9 +115,11 @@ class PolyaTree(nn.Module):
         # Sample beta intervals
         samples = Beta(shapes, scales).rsample()
 
+
         tree = Tree(self.L, samples, self.dim, samples.device)
         lowers = torch.stack(tree.lowers, dim=1)
         uppers = torch.stack(tree.uppers, dim=1)
+
 
         # Compute indicators (n, dim, 2 ** L - 1)
         if x.dim() == 2:
@@ -128,10 +130,38 @@ class PolyaTree(nn.Module):
         within_lower = x >= lowers.unsqueeze(0)
         within_upper = x <= uppers.unsqueeze(0)
 
-        # Compute likelihood
+        # Compute log likelihood Eq (13)
+        #TODO: vectorize the computation
         a_s = torch.logical_and(within_lower, within_upper)
-        likelihood = torch.sum((a_s * torch.log(samples)), dim=(1,2))
-        return likelihood.mean()
+        B = uppers - lowers
+        log_likes = []
+        for i in range(len(x)):
+            log_like = 0.0
+            for j in range(self.dim):
+                a_s_true= torch.nonzero(a_s[i,j,:], as_tuple=True)[0]
+                Y = torch.prod(samples[j][a_s_true[-1]])
+
+                log_like += torch.log(Y) - torch.log(B[j][a_s_true[-1]])
+            log_likes.append(log_like)
+        #print(a_s[0,:,:])
+        #print(a_s_true_1)
+
+        #print(B)
+        #print(B[0][a_s_true_1[-1]])
+
+        #print('samples shape')
+        #print(samples.shape)
+            #Y = torch.prod(samples[0][a_s_true_1[-1]])
+        #print(Y)
+
+            #log_like += torch.log(Y) - torch.log(B[0][a_s_true_1[-1]])
+            #print(log_like)
+
+        return torch.stack(log_likes)
+
+
+        #likelihood = torch.sum((a_s * torch.log(samples)), dim=(1,2))
+        #return likelihood.mean()
 
 
     def kl(self):

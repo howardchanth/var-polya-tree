@@ -8,7 +8,7 @@ from experiments.UCI.power import POWER
 import argparse
 
 from vpt.polya_tree import PolyaTree
-from backbone_net import MLP
+from backbone_net import MLPS
 import torch.optim as optim
 import sys
 def load_dataset(h):
@@ -49,21 +49,23 @@ def load_dataset(h):
 
 def eval_val(backnet, model, eval_dataloader, device):
     with t.no_grad():
-        val_nll = 0
+        val_nlls = []
         for batch_idx, batch in enumerate(eval_dataloader):
             batch_data = batch[0].to(device)
             features = backnet(batch_data)
-            val_nll += - model(features)
-    return val_nll/ (batch_idx + 1)
+            val_nlls.append(- model(features))
+        val_nll = t.cat(val_nlls)
+    return val_nll.mean()
 
 def eval_test(backnet, model, eval_dataloader, device):
     with t.no_grad():
-        log_like = 0
+        log_likes = []
         for batch_idx, batch in enumerate(eval_dataloader):
             batch_data = batch[0].to(device)
             features = backnet(batch_data)
-            log_like += model(features)
-    return log_like/ (batch_idx + 1)
+            log_likes.append(model(features))
+        log_like = t.cat(log_likes)
+    return log_like.mean()
 
 
 
@@ -104,11 +106,8 @@ if __name__ == "__main__":
     train_loader, valid_loader, test_loader = data
 
     level = 4
-    back_net = MLP(n_dim, [
-        16,
-        16,
-        # 128, 256, 128,
-        # 64
+    back_net = MLPS(n_dim, [
+        64, 64, 32, 16
         ], n_dim
     ).to(device)
     model = PolyaTree(level, n_dim).to(device)
@@ -128,10 +127,10 @@ if __name__ == "__main__":
     for _ in range(args.epochs):
         for x in train_loader:
             opt.zero_grad()
-            x = x[0].to(device)
+            x = x[0].squeeze().to(device)
             # x = x.sigmoid()
             features = back_net(x)
-            nll = model(features)
+            nll = -model(features).mean()
             nll.backward()
             opt.step()
 
