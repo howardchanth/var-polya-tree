@@ -142,7 +142,7 @@ class PolyaTree(nn.Module):
                 Y = torch.prod(samples[j][a_s_true[-1]])
 
                 log_like += torch.log(Y) - torch.log(B[j][a_s_true[-1]])
-            log_likes.append(log_like)
+            log_likes.append(log_like/self.dim)
         #print(a_s[0,:,:])
         #print(a_s_true_1)
 

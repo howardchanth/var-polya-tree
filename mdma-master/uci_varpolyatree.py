@@ -10,9 +10,9 @@ import argparse
 from vpt.polya_tree import PolyaTree
 from backbone_net import MLPS
 import torch.optim as optim
+from vpt.utils import log_det_jacobian
 import sys
 def load_dataset(h):
-    h.dataset = 'gas'
     if h.dataset == 'gas':
         dataset = GAS(h.data_dir + '/gas/ethylene_CO.pickle')
     elif h.dataset == 'hepmass':
@@ -53,7 +53,8 @@ def eval_val(backnet, model, eval_dataloader, device):
         for batch_idx, batch in enumerate(eval_dataloader):
             batch_data = batch[0].to(device)
             features = backnet(batch_data)
-            val_nlls.append(- model(features))
+            nll = -model(features) - log_det_jacobian(backnet, batch_data)
+            val_nlls.append(nll)
         val_nll = t.cat(val_nlls)
     return val_nll.mean()
 
@@ -63,7 +64,8 @@ def eval_test(backnet, model, eval_dataloader, device):
         for batch_idx, batch in enumerate(eval_dataloader):
             batch_data = batch[0].to(device)
             features = backnet(batch_data)
-            log_likes.append(model(features))
+            ll = model(features) + log_det_jacobian(backnet, batch_data)
+            log_likes.append(ll)
         log_like = t.cat(log_likes)
     return log_like.mean()
 
@@ -130,12 +132,12 @@ if __name__ == "__main__":
             x = x[0].squeeze().to(device)
             # x = x.sigmoid()
             features = back_net(x)
-            nll = -model(features).mean()
-            nll.backward()
+            loss = -model(features).mean() - log_det_jacobian(back_net, x).mean()
+            loss.backward()
             opt.step()
 
             if inter % args.print_every == 0:
-                print('Iteration {}, train nll: {}'.format(inter, nll.item()))
+                print('Iteration {}, train loss: {}'.format(inter, loss.item()))
 
             inter += 1
 
