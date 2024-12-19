@@ -75,8 +75,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Passing parameters using argparse.")
 
     # dataset
-    parser.add_argument('--dataset', type=str, default='gas')
-    parser.add_argument('--batch_size', type=int, default=500)
+    parser.add_argument('--dataset', type=str, default='miniboone')
+    parser.add_argument('--batch_size', type=int, default=200)
     parser.add_argument('--data_dir', type=str, default='data/')
 
     # train param
@@ -107,7 +107,7 @@ if __name__ == "__main__":
 
     train_loader, valid_loader, test_loader = data
 
-    level = 4
+    level = 3
     back_net = MLPS(n_dim, [
         64, 64, 32, 16
         ], n_dim
@@ -126,7 +126,7 @@ if __name__ == "__main__":
                                                        factor=0.5)
 
     inter = 0
-    for _ in range(args.epochs):
+    for epoch in range(args.epochs):
         for x in train_loader:
             opt.zero_grad()
             x = x[0].squeeze().to(device)
@@ -142,10 +142,10 @@ if __name__ == "__main__":
             inter += 1
 
         val_nll = eval_val(back_net, model, test_loader, device)
-        print('Validation nll: {}'.format(val_nll.item()))
+        print('Epoch: {}, Validation nll: {}'.format(epoch, val_nll.item()))
 
         test_loglike = eval_test(back_net, model, test_loader, device)
-        print('Test log likelihood: {}'.format(test_loglike.item()))
+        print('Epoch: {}, Test log likelihood: {}'.format(epoch, test_loglike.item()))
 
         scheduler.step(val_nll)
 
