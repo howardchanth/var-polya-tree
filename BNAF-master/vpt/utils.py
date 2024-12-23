@@ -1,6 +1,7 @@
 from torch.func import jacrev, vmap
 import torch.nn as nn
 import torch
+import sys
 import torch.nn.functional as F
 
 # D = 16
@@ -29,11 +30,23 @@ class sigmoid_projection(nn.Module):
         """
         The output tensor and the log-det-Jacobian.
         """
+        # Check for NaN values
+        nan_check = torch.isnan(x)
+        contains_nan = nan_check.any()
+        if contains_nan.item():
+            print("\nnan value before sigmoid", contains_nan.item())
+            sys.exit()
+
         output = 1 / (1 + torch.exp(-x))
+        nan_check_output = torch.isnan(output)
+        contains_nan_output = nan_check_output.any()
+        if contains_nan_output.item():
+            print("\nnan value after sigmoid")
+            sys.exit()
         Jacs = output * (1 - output)
         determinant = torch.prod(Jacs, dim=-1)
         log_det_Jac = torch.log(torch.clamp(torch.abs(determinant), min=1e-5))
-        return 1 / (1 + torch.exp(-x)), log_det_Jac
+        return output, log_det_Jac
 
     def inverse(self, y):
         if torch.any(y <= 0) or torch.any(y >= 1):
