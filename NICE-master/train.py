@@ -7,7 +7,8 @@ import numpy as np
 import nice, utils
 
 def main(args):
-    device = torch.device("cuda:0")
+    #device = torch.device("cuda:0")
+    device = torch.device(args.device)
 
     # model hyperparameters
     dataset = args.dataset
@@ -80,7 +81,7 @@ def main(args):
                 in_out_dim=full_dim, 
                 mid_dim=mid_dim, 
                 hidden=hidden, 
-                mask_config=mask_config).to(device)
+                mask_config=mask_config, device = device).to(device)
     optimizer = torch.optim.Adam(
         flow.parameters(), lr=lr, betas=(momentum, decay), eps=1e-4)
 
@@ -122,6 +123,7 @@ def main(args):
                 flow.eval()        # set to inference mode
                 with torch.no_grad():
                     z, _ = flow.f(inputs)
+                    z = z.to(device)
                     reconst = flow.g(z).cpu()
                     reconst = utils.prepare_data(
                         reconst, dataset, zca=zca, mean=mean, reverse=True)
@@ -146,7 +148,7 @@ def main(args):
         'mid_dim': mid_dim, 
         'hidden': hidden, 
         'mask_config': mask_config}, 
-        './models/mnist/' + filename +'iter%d.tar' % total_iter)
+        'models/mnist/' + filename +'iter%d.tar' % total_iter)
 
     print('Checkpoint Saved')
 
@@ -184,5 +186,6 @@ if __name__ == '__main__':
                         help='beta2 in Adam optimizer.',
                         type=float,
                         default=0.999)
+    parser.add_argument('--device', default='cpu', help='cuda or cpu.')
     args = parser.parse_args()
     main(args)

@@ -92,7 +92,7 @@ class Scaling(nn.Module):
 """
 class NICE(nn.Module):
     def __init__(self, prior, coupling, 
-        in_out_dim, mid_dim, hidden, mask_config):
+        in_out_dim, mid_dim, hidden, mask_config, device):
         """Initialize a NICE.
 
         Args:
@@ -113,7 +113,8 @@ class NICE(nn.Module):
                      hidden=hidden, 
                      mask_config=(mask_config+i)%2) \
             for i in range(coupling)])
-        self.scaling = Scaling(in_out_dim)
+        self.scaling = Scaling(in_out_dim).to(device)
+        self.device = device
 
     def g(self, z):
         """Transformation g: Z -> X (inverse of f).
@@ -123,7 +124,9 @@ class NICE(nn.Module):
         Returns:
             transformed tensor in data space X.
         """
+
         x, _ = self.scaling(z, reverse=True)
+
         for i in reversed(range(len(self.coupling))):
             x = self.coupling[i](x, reverse=True)
         return x
@@ -162,7 +165,7 @@ class NICE(nn.Module):
         Returns:
             samples from the data space X.
         """
-        z = self.prior.sample((size, self.in_out_dim)).cuda()
+        z = self.prior.sample((size, self.in_out_dim)).to(self.device)
         return self.g(z)
 
     def forward(self, x):
