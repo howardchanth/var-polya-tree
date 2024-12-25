@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="Python 3.11 (tennis_score)" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.11 (2)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Remote Python 3.8.20 (sftp://thchan@research15.saas.hku.hk:22/home/thchan/anaconda3/envs/polya/bin/python3.8)" project-jdk-type="Python SDK" />
 </project>
