@@ -70,8 +70,9 @@ class Tree:
                     node.lower = node.parent.lower
                     node.upper = node.parent.lower + beta * length
                 elif node == node.parent.right:
-                    node.lower = node.parent.lower + beta * length
-                    node.upper = node.parent.lower + beta * length + (1 - beta) * length
+                    node.lower = node.parent.lower + beta * length + 1e-7
+                    #node.upper = node.parent.lower + beta * length + (1 - beta) * length
+                    node.upper = node.parent.upper
 
         lowers = [node.lower for node in self.nodes]
         uppers = [node.upper for node in self.nodes]
@@ -127,7 +128,7 @@ class PolyaTree(nn.Module):
         elif x.shape[1] != self.dim:
             x = x.transpose(2,1)
 
-        within_lower = x > lowers.unsqueeze(0)
+        within_lower = x >= lowers.unsqueeze(0)
         within_upper = x <= uppers.unsqueeze(0)
 
         # Compute log likelihood Eq (13)
@@ -139,15 +140,72 @@ class PolyaTree(nn.Module):
         #print(a_s_true[2].reshape(len(x), self.dim, self.L)[0,:,:])
         #print(samples.shape)
         #print(samples.unsqueeze(0).repeat(len(x), 1, 1).shape)
-        while a_s_true[2].shape[0] % (self.L * self.dim) != 0:
-            x_ = x + torch.rand_like(x) * 1e-8
-            within_lower = x_ > lowers.unsqueeze(0)
+
+        if a_s_true[2].shape[0] != (self.L * self.dim * len(x)):
+            #
+            #
+            #
+            # print('Shape of a_s_true', a_s_true[2].shape)
+            # print('should be {}'.format(self.L * self.dim * len(x)))
+            #
+            # for j in range(6):
+            #     print('dim: {}'.format(j))
+            #     for i in range(15):
+            #         print(i)
+            #         print(lowers[j][i].item(), uppers[j][i].item())
+            #
+            #
+            # for i in range(len(x)):
+            #     x_i = x[i]
+            #     a_s_i = a_s[i]
+            #
+            #     a_s_true_i = torch.nonzero(a_s_i, as_tuple=True)
+            #
+            #     if a_s_true_i[1].shape[0] != (self.L * self.dim):
+            #         print(a_s_i)
+            #         print(a_s_true_i[1])
+            #         print(x_i)
+
+
+
+            # Specify the number of decimal places
+            decimal_places = 5
+            scale = 10 ** decimal_places
+
+            # Limit the number of decimal places
+            x_ = torch.round(x * scale) / scale
+            within_lower = x_ >= lowers.unsqueeze(0)
             within_upper = x_ <= uppers.unsqueeze(0)
+
+
             a_s = torch.logical_and(within_lower, within_upper)
+            B = uppers - lowers
+
             a_s_true = torch.nonzero(a_s, as_tuple=True)
 
-        # N * D
+            # if a_s_true[2].shape[0] != (self.L * self.dim * len(x)):
+            #     print(False)
+            #     print(a_s_true[2].shape[0])
+            # else:
+            #     print(True)
 
+            #sys.exit()
+
+
+
+
+            # x_ = x + torch.rand_like(x) * 1e-5
+            # within_lower = x_ > lowers.unsqueeze(0)
+            # within_upper = x_ <= uppers.unsqueeze(0)
+            # a_s = torch.logical_and(within_lower, within_upper)
+            # a_s_true = torch.nonzero(a_s, as_tuple=True)
+        if a_s_true[2].shape[0] == 0:
+            print(uppers)
+            print(lowers)
+
+            print(within_lower, within_upper)
+            print(x)
+        # N * D
         Y_alld_alln = torch.prod(samples.unsqueeze(0).repeat(len(x), 1, 1)[torch.arange(len(x)).unsqueeze(-1).unsqueeze(-1),
             torch.arange(self.dim).unsqueeze(0).unsqueeze(-1), a_s_true[2].reshape(len(x), self.dim, self.L)], dim = -1)
         #print(Y_alld_alln.shape, Y_alld_alln[0,:])

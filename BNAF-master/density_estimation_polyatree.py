@@ -3,6 +3,7 @@ import json
 import argparse
 import pprint
 import datetime
+import numpy as np
 import torch
 from torch.utils import data
 from bnaf import *
@@ -168,16 +169,25 @@ def load_model(model, optimizer, args, load_start_epoch=False):
     return f
 
 
-def compute_log_p_x(model, sigmoid_layer, polyatree, x_mb):
-    y_mb, log_diag_j_mb = model(x_mb)
-    y_sig, log_sig = sigmoid_layer(y_mb)
-    log_like = polyatree(y_sig)
-    # log_p_y_mb = (
-    #     torch.distributions.Normal(torch.zeros_like(y_mb), torch.ones_like(y_mb))
-    #     .log_prob(y_mb)
-    #     .sum(-1)
-    # )
-    return log_like + log_diag_j_mb + log_sig
+def compute_log_p_x(model, sigmoid_layer, polyatree, x_mb, warm = False):
+    if warm:
+        y_mb, log_diag_j_mb = model(x_mb)
+        log_p_y_mb = (
+            torch.distributions.Normal(torch.zeros_like(y_mb), torch.ones_like(y_mb))
+            .log_prob(y_mb)
+            .sum(-1)
+        )
+        return log_p_y_mb + log_diag_j_mb
+    else:
+        y_mb, log_diag_j_mb = model(x_mb)
+        y_sig, log_sig = sigmoid_layer(y_mb)
+        log_like = polyatree(y_sig)
+        # log_p_y_mb = (
+        #     torch.distributions.Normal(torch.zeros_like(y_mb), torch.ones_like(y_mb))
+        #     .log_prob(y_mb)
+        #     .sum(-1)
+        # )
+        return log_like + log_diag_j_mb + log_sig
 
 
 def train(
@@ -196,13 +206,16 @@ def train(
         writer = SummaryWriter(os.path.join(args.tensorboard, args.load or args.path))
 
     epoch = args.start_epoch
-    for epoch in range(args.start_epoch, args.start_epoch + args.epochs):
-
+    if epoch < args.warmup_epoch:
+        warm = True
+    else:
+        warm = False
+    for epoch in range(args.start_epoch, args.end_epoch):
         t = tqdm(data_loader_train, smoothing=0, ncols=80)
         train_loss = []
 
         for (x_mb,) in t:
-            loss = -compute_log_p_x(model, sigmoid_layer, polyatree, x_mb).mean()
+            loss = -compute_log_p_x(model, sigmoid_layer, polyatree, x_mb, warm = warm).mean()
 
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=args.clip_norm)
@@ -217,7 +230,7 @@ def train(
         optimizer.swap()
         validation_loss = -torch.stack(
             [
-                compute_log_p_x(model, sigmoid_layer, polyatree, x_mb).mean().detach()
+                compute_log_p_x(model, sigmoid_layer, polyatree, x_mb, warm = warm).mean().detach()
                 for x_mb, in data_loader_valid
             ],
             -1,
@@ -250,11 +263,11 @@ def train(
     load_model(model, optimizer, args)()
     optimizer.swap()
     validation_loss = -torch.stack(
-        [compute_log_p_x(model, x_mb).mean().detach() for x_mb, in data_loader_valid],
+        [compute_log_p_x(model, sigmoid_layer, polyatree, x_mb, warm = warm).mean().detach() for x_mb, in data_loader_valid],
         -1,
     ).mean()
     test_loss = -torch.stack(
-        [compute_log_p_x(model, sigmoid_layer, polyatree, x_mb).mean().detach() for x_mb, in data_loader_test], -1
+        [compute_log_p_x(model, sigmoid_layer, polyatree, x_mb, warm = warm).mean().detach() for x_mb, in data_loader_test], -1
     ).mean()
 
     print("###### Stop training after {} epochs!".format(epoch + 1))
@@ -279,9 +292,11 @@ def main():
     )
 
     parser.add_argument("--learning_rate", type=float, default=1e-2)
+    parser.add_argument("--pt_learning_rate", type=float, default=1e-4)
     parser.add_argument("--batch_dim", type=int, default=200)
     parser.add_argument("--clip_norm", type=float, default=0.1)
     parser.add_argument("--epochs", type=int, default=1000)
+    parser.add_argument("--warmup_ratio", type=float, default=0.5)
 
     parser.add_argument("--patience", type=int, default=20)
     parser.add_argument("--cooldown", type=int, default=10)
@@ -337,10 +352,14 @@ def main():
     polyatree = PolyaTree(args.tree_level, args.n_dims).to(args.device)
 
     print("Creating optimizer..")
+    optimizer_warm = Adam(
+        [{'params': model.parameters(), 'lr': args.learning_rate}],
+        amsgrad=True, polyak=args.polyak
+    )
     optimizer = Adam(
-        [{'params': model.parameters()},
-            {'params': polyatree.parameters()}],
-        lr=args.learning_rate, amsgrad=True, polyak=args.polyak
+        [{'params': model.parameters(), 'lr': args.learning_rate},
+            {'params': polyatree.parameters(), 'lr' : args.pt_learning_rate},],
+       amsgrad=True, polyak=args.polyak
     )
 
     print("Creating scheduler..")
@@ -356,10 +375,25 @@ def main():
     )
 
     args.start_epoch = 0
+    args.warmup_epoch = int(np.floor(args.epochs * args.warmup_ratio))
+    args.end_epoch = args.warmup_epoch
     if args.load:
         load_model(model, optimizer, args, load_start_epoch=True)()
 
-    print("Training..")
+    print("Warmup Training..")
+    train(
+        model, sigmoid_layer, polyatree,
+        optimizer_warm,
+        scheduler,
+        data_loader_train,
+        data_loader_valid,
+        data_loader_test,
+        args,
+    )
+
+    print("PT Training..")
+    args.start_epoch = args.warmup_epoch
+    args.end_epoch = args.epochs
     train(
         model, sigmoid_layer, polyatree,
         optimizer,
