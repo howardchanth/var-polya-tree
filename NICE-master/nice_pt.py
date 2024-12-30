@@ -161,6 +161,7 @@ class NICE_PT(nn.Module):
         z, log_scale, log_sigmoid = self.f(x)
         log_ll = self.prior(z)
         #log_ll = torch.sum(self.prior.log_prob(z), dim=1)
+        #print(log_ll.mean(), log_scale.mean(), log_sigmoid.mean())
         return log_ll + log_scale + log_sigmoid
 
     def sample(self, size):

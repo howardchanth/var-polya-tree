@@ -37,6 +37,8 @@ class Tree:
         self.leaf_probs = []
         self.leaf_lowers, self.leaf_uppers = [], []
 
+        self.boundaries = None
+
         self.nodes = self.create_nodes(betas)
         self.lowers, self.uppers = self.get_intervals()
 
@@ -76,6 +78,7 @@ class Tree:
         return nodes
 
     def get_intervals(self):
+        boundaries = []
         for node in self.nodes:
             if node.parent is not None:
                 beta = node.parent.beta
@@ -84,6 +87,7 @@ class Tree:
                 if node == node.parent.left:
                     node.lower = node.parent.lower
                     node.upper = node.parent.lower + beta * length
+                    boundaries.append(node.upper)
                 elif node == node.parent.right:
                     node.lower = node.parent.lower + beta * length + 1e-7
                     #node.upper = node.parent.lower + beta * length + (1 - beta) * length
@@ -91,8 +95,32 @@ class Tree:
 
         lowers = [node.lower for node in self.nodes]
         uppers = [node.upper for node in self.nodes]
-
+        self.boundaries = torch.stack(boundaries)
         return lowers, uppers
+
+
+    def get_nodes_id(self, x):
+
+        nodes_id = torch.zeros((len(x), self.dim, self.L), dtype = torch.int).to(self.device)
+
+        nodes_id[:,:,0] = 0
+
+        for l in range(1, self.L):
+            boundary_start = 2 ** (l-1) - 1
+            boundary_end = 2 ** l - 1
+            for b in range(boundary_start, boundary_end):
+                left = x <= self.boundaries[b].unsqueeze(0)
+                within = nodes_id[:, :, l-1] == b
+
+                within_left = left & within
+
+                indices_left = within_left.nonzero(as_tuple=True)
+                nodes_id[indices_left[0], indices_left[1], l] = int(b * 2 + 1)
+
+                within_right = within & ~left
+                indices_right = within_right.nonzero(as_tuple=True)
+                nodes_id[indices_right[0], indices_right[1], l] = int(b * 2 + 2)
+        return nodes_id
 
 
 
@@ -137,58 +165,67 @@ class PolyaTree(nn.Module):
 
 
         tree = Tree(self.L, samples, self.dim, samples.device)
+
+
+        nodes_id = tree.get_nodes_id(x)
+        # print(nodes_id[0,0,:])
+        # sys.exit()
+        #
+        #
+        #
+        #
         lowers = torch.stack(tree.lowers, dim=1)
         uppers = torch.stack(tree.uppers, dim=1)
 
-        # Compute indicators (n, dim, 2 ** L - 1)
+        # # Compute indicators (n, dim, 2 ** L - 1)
         if x.dim() == 2:
             x = x.unsqueeze(-1)
         elif x.shape[1] != self.dim:
             x = x.transpose(2,1)
-
-        within_lower = x >= lowers.unsqueeze(0)
-        within_upper = x <= uppers.unsqueeze(0)
+        #
+        # within_lower = ((x > lowers.unsqueeze(0)) | (torch.isclose(x, lowers.unsqueeze(0), rtol=1e-4)))
+        # within_upper = x < uppers.unsqueeze(0)
 
         # Compute log likelihood Eq (13)
-        #TODO: sanity check
-        a_s = torch.logical_and(within_lower, within_upper)
+        # #TODO: sanity check
+        # a_s = torch.logical_and(within_lower, within_upper)
         B = uppers - lowers
+        #
+        # a_s_true = torch.nonzero(a_s, as_tuple=True)
+        # #print(a_s_true[2].reshape(len(x), self.dim, self.L)[0,:,:])
+        # #print(samples.shape)
+        # #print(samples.unsqueeze(0).repeat(len(x), 1, 1).shape)
+        #
+        # if a_s_true[2].shape[0] != (self.L * self.dim * len(x)):
+        #
+        #     # Specify the number of decimal places
+        #     decimal_places = 3
+        #     scale = 10 ** decimal_places
+        #
+        #     # Limit the number of decimal places
+        #     x_ = torch.round(x * scale) / scale
+        #     within_lower = x_ >= lowers.unsqueeze(0)
+        #     within_upper = x_ <= uppers.unsqueeze(0)
+        #
+        #
+        #     a_s = torch.logical_and(within_lower, within_upper)
+        #     B = uppers - lowers
+        #
+        #     a_s_true = torch.nonzero(a_s, as_tuple=True)
 
-        a_s_true = torch.nonzero(a_s, as_tuple=True)
-        #print(a_s_true[2].reshape(len(x), self.dim, self.L)[0,:,:])
-        #print(samples.shape)
-        #print(samples.unsqueeze(0).repeat(len(x), 1, 1).shape)
-
-        if a_s_true[2].shape[0] != (self.L * self.dim * len(x)):
-
-            # Specify the number of decimal places
-            decimal_places = 3
-            scale = 10 ** decimal_places
-
-            # Limit the number of decimal places
-            x_ = torch.round(x * scale) / scale
-            within_lower = x_ >= lowers.unsqueeze(0)
-            within_upper = x_ <= uppers.unsqueeze(0)
-
-
-            a_s = torch.logical_and(within_lower, within_upper)
-            B = uppers - lowers
-
-            a_s_true = torch.nonzero(a_s, as_tuple=True)
-
-            if a_s_true[2].shape[0] != (self.L * self.dim * len(x)):
-                decimal_places = 2
-                scale = 10 ** decimal_places
-
-                # Limit the number of decimal places
-                x_ = torch.round(x * scale) / scale
-                within_lower = x_ >= lowers.unsqueeze(0)
-                within_upper = x_ <= uppers.unsqueeze(0)
-
-                a_s = torch.logical_and(within_lower, within_upper)
-                B = uppers - lowers
-
-                a_s_true = torch.nonzero(a_s, as_tuple=True)
+            # if a_s_true[2].shape[0] != (self.L * self.dim * len(x)):
+            #     decimal_places = 2
+            #     scale = 10 ** decimal_places
+            #
+            #     # Limit the number of decimal places
+            #     x_ = torch.round(x * scale) / scale
+            #     within_lower = x_ >= lowers.unsqueeze(0)
+            #     within_upper = x_ <= uppers.unsqueeze(0)
+            #
+            #     a_s = torch.logical_and(within_lower, within_upper)
+            #     B = uppers - lowers
+            #
+            #     a_s_true = torch.nonzero(a_s, as_tuple=True)
 
             # if a_s_true[2].shape[0] != (self.L * self.dim * len(x)):
             #     print(False)
@@ -206,20 +243,24 @@ class PolyaTree(nn.Module):
             # within_upper = x_ <= uppers.unsqueeze(0)
             # a_s = torch.logical_and(within_lower, within_upper)
             # a_s_true = torch.nonzero(a_s, as_tuple=True)
-        if a_s_true[2].shape[0] == 0:
-            print(uppers)
-            print(lowers)
-
-            print(within_lower, within_upper)
-            print(x)
+        # if a_s_true[2].shape[0] == 0:
+        #     print(uppers)
+        #     print(lowers)
+        #
+        #     print(within_lower, within_upper)
+        #     print(x)
         # N * D
+        # Y_alld_alln = torch.prod(samples.unsqueeze(0).repeat(len(x), 1, 1)[torch.arange(len(x)).unsqueeze(-1).unsqueeze(-1),
+        #     torch.arange(self.dim).unsqueeze(0).unsqueeze(-1), a_s_true[2].reshape(len(x), self.dim, self.L)], dim = -1)
         Y_alld_alln = torch.prod(samples.unsqueeze(0).repeat(len(x), 1, 1)[torch.arange(len(x)).unsqueeze(-1).unsqueeze(-1),
-            torch.arange(self.dim).unsqueeze(0).unsqueeze(-1), a_s_true[2].reshape(len(x), self.dim, self.L)], dim = -1)
+            torch.arange(self.dim).unsqueeze(0).unsqueeze(-1), nodes_id], dim = -1)
         #print(Y_alld_alln.shape, Y_alld_alln[0,:])
 
         # N * D
+        # B = B.unsqueeze(0).repeat(len(x), 1, 1)[torch.arange(len(x)).unsqueeze(-1),
+        #     torch.arange(self.dim).unsqueeze(0), a_s_true[2].reshape(len(x), self.dim, self.L)[:,:,-1]]
         B = B.unsqueeze(0).repeat(len(x), 1, 1)[torch.arange(len(x)).unsqueeze(-1),
-            torch.arange(self.dim).unsqueeze(0), a_s_true[2].reshape(len(x), self.dim, self.L)[:,:,-1]]
+            torch.arange(self.dim).unsqueeze(0), nodes_id[:, :, -1]]
         log_B = torch.log(torch.clamp(B, min=1e-5))
         # N
         log_like_vec = (torch.log(torch.clamp(Y_alld_alln, min= 1e-5) - log_B)).mean(-1)
