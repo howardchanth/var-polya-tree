@@ -30,12 +30,12 @@ def main(args):
     mean = None
     if dataset == 'mnist':
         mean = torch.load('./statistics/mnist_mean.pt')
-        (full_dim, mid_dim, hidden) = (1 * 28 * 28, 1000, 5)
+        (full_dim, mid_dim, hidden) = (1 * 28 * 28, 256, 5)
         transform = torchvision.transforms.ToTensor()
         trainset = torchvision.datasets.MNIST(root='~/torch/data/MNIST',
                                               train=True, download=True, transform=transform)
         trainloader = torch.utils.data.DataLoader(trainset,
-                                                  batch_size=batch_size, shuffle=True, num_workers=2)
+                                                  batch_size=batch_size, shuffle=True, num_workers=0)
     elif dataset == 'fashion-mnist':
         mean = torch.load('./statistics/fashion_mnist_mean.pt')
         (full_dim, mid_dim, hidden) = (1 * 28 * 28, 1000, 5)
@@ -43,7 +43,7 @@ def main(args):
         trainset = torchvision.datasets.FashionMNIST(root='~/torch/data/FashionMNIST',
                                                      train=True, download=True, transform=transform)
         trainloader = torch.utils.data.DataLoader(trainset,
-                                                  batch_size=batch_size, shuffle=True, num_workers=2)
+                                                  batch_size=batch_size, shuffle=True, num_workers=0)
     elif dataset == 'svhn':
         zca = torch.load('./statistics/svhn_zca_3.pt')
         mean = torch.load('./statistics/svhn_mean.pt')
@@ -52,7 +52,7 @@ def main(args):
         trainset = torchvision.datasets.SVHN(root='~/torch/data/SVHN',
                                              split='train', download=True, transform=transform)
         trainloader = torch.utils.data.DataLoader(trainset,
-                                                  batch_size=batch_size, shuffle=True, num_workers=2)
+                                                  batch_size=batch_size, shuffle=True, num_workers=0)
     elif dataset == 'cifar10':
         zca = torch.load('./statistics/cifar10_zca_3.pt')
         mean = torch.load('./statistics/cifar10_mean.pt')
@@ -63,7 +63,7 @@ def main(args):
         trainset = torchvision.datasets.CIFAR10(root='~/torch/data/CIFAR10',
                                                 train=True, download=True, transform=transform)
         trainloader = torch.utils.data.DataLoader(trainset,
-                                                  batch_size=batch_size, shuffle=True, num_workers=2)
+                                                  batch_size=batch_size, shuffle=True, num_workers=0)
 
     # if latent == 'normal':
     #     prior = torch.distributions.Normal(
@@ -166,7 +166,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size',
                         help='number of images in a mini-batch.',
                         type=int,
-                        default=200)
+                        default=64)
     parser.add_argument('--latent',
                         help='latent distribution.',
                         type=str,

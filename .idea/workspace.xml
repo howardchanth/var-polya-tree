@@ -4,12 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="0be72177-6708-40b0-ba1a-1b50c67ce586" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/BNAF-master/benchmark_density_estimation_polyatree.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/var-polya-tree.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/var-polya-tree.iml" afterDir="false" />
+    <list default="true" id="0be72177-6708-40b0-ba1a-1b50c67ce586" name="Changes" comment="Developed polyatree benchmarking">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/BNAF-master/benchmark_density_estimation_polyatree.py" beforeDir="false" afterPath="$PROJECT_DIR$/BNAF-master/benchmark_density_estimation_polyatree.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/NICE-master/nice_pt.py" beforeDir="false" afterPath="$PROJECT_DIR$/NICE-master/nice_pt.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/NICE-master/train_pt.py" beforeDir="false" afterPath="$PROJECT_DIR$/NICE-master/train_pt.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -64,7 +63,7 @@
       <recent name="C:\Playground\Postgraduate\Research\var-polya-tree\BNAF-master" />
     </key>
   </component>
-  <component name="RunManager">
+  <component name="RunManager" selected="Python.train_pt">
     <configuration name="benchmark_density_estimation_polyatree" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="var-polya-tree" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -87,8 +86,31 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="train_pt" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="var-polya-tree" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/NICE-master" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/NICE-master/train_pt.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.train_pt" />
         <item itemvalue="Python.benchmark_density_estimation_polyatree" />
       </list>
     </recent_temporary>
@@ -127,8 +149,17 @@
       <workItem from="1732765387557" duration="4877000" />
       <workItem from="1733220259789" duration="2232000" />
       <workItem from="1734938869144" duration="2834000" />
-      <workItem from="1734956959843" duration="5198000" />
+      <workItem from="1734956959843" duration="9920000" />
+      <workItem from="1735288778923" duration="38323000" />
     </task>
+    <task id="LOCAL-00001" summary="Developed polyatree benchmarking">
+      <created>1735089724406</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1735089724406</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -145,8 +176,13 @@
       </map>
     </option>
   </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Developed polyatree benchmarking" />
+    <option name="LAST_COMMIT_MESSAGE" value="Developed polyatree benchmarking" />
+  </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/var_polya_tree$benchmark_density_estimation_polyatree.coverage" NAME="benchmark_density_estimation_polyatree Coverage Results" MODIFIED="1734939878642" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/BNAF-master" />
+    <SUITE FILE_PATH="coverage/var_polya_tree$benchmark_density_estimation_polyatree.coverage" NAME="benchmark_density_estimation_polyatree Coverage Results" MODIFIED="1735587995201" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/BNAF-master" />
+    <SUITE FILE_PATH="coverage/var_polya_tree$train_pt.coverage" NAME="train_pt Coverage Results" MODIFIED="1735701446347" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/NICE-master" />
     <SUITE FILE_PATH="coverage/var_polya_tree$train.coverage" NAME="train Coverage Results" MODIFIED="1732769649290" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/var_polya_tree$uci_density_estimation.coverage" NAME="uci_density_estimation Coverage Results" MODIFIED="1733132104160" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/mdma-master" />
   </component>

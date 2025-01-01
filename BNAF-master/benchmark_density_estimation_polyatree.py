@@ -367,7 +367,7 @@ def main():
                 print("Creating BNAF model and PolyaTree model..")
                 model = create_model(args, verbose=True)
                 sigmoid_layer = sigmoid_projection().to(args.device)
-                polyatree = PolyaTree(args.tree_level, args.n_dims).to(args.device)
+                polyatree = PolyaTree(args.tree_level, args.n_dims, args.device).to(args.device)
 
                 print("Creating optimizer..")
                 optimizer = Adam(

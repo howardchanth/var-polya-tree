@@ -23,14 +23,20 @@ class Coupling(nn.Module):
 
         self.in_block = nn.Sequential(
             nn.Linear(in_out_dim//2, mid_dim),
-            nn.ReLU())
+            nn.Softplus())
         self.mid_block = nn.ModuleList([
             nn.Sequential(
                 nn.Linear(mid_dim, mid_dim),
-                nn.ReLU()) for _ in range(hidden - 1)])
+                nn.Softplus()) for _ in range(hidden - 1)])
         self.out_block = nn.Linear(mid_dim, in_out_dim//2)
 
-    def forward(self, x, reverse=False):
+    def reset_nan_parameters(self):
+        for name, param in self.named_parameters():
+            if torch.isnan(param).any():
+                # print(f"Resetting {name} due to NaN values.")
+                nn.init.uniform_(param)
+
+    def forward(self, inp, reverse=False):
         """Forward pass.
 
         Args:
@@ -39,14 +45,23 @@ class Coupling(nn.Module):
         Returns:
             transformed tensor.
         """
-        [B, W] = list(x.size())
-        x = x.reshape((B, W//2, 2))
+
+        self.reset_nan_parameters()  # Reset nan parameters if any
+        inp = inp.clamp(max=torch.max(inp[~torch.isinf(inp)]))
+
+        [B, W] = list(inp.size())
+        x = inp.reshape((B, W//2, 2))
         if self.mask_config:
             on, off = x[:, :, 0], x[:, :, 1]
         else:
             off, on = x[:, :, 0], x[:, :, 1]
 
         off_ = self.in_block(off)
+        off_ = off_.clamp(max=torch.max(off_[~torch.isinf(off_)]))
+
+        assert not torch.isnan(off_).any()
+        assert not torch.isinf(off_).any()
+
         for i in range(len(self.mid_block)):
             off_ = self.mid_block[i](off_)
         shift = self.out_block(off_)
@@ -59,6 +74,9 @@ class Coupling(nn.Module):
             x = torch.stack((on, off), dim=2)
         else:
             x = torch.stack((off, on), dim=2)
+
+        assert not torch.isnan(x).any()
+
         return x.reshape((B, W))
 
 """Log-scaling layer.
@@ -74,6 +92,10 @@ class Scaling(nn.Module):
         self.scale = nn.Parameter(
             torch.zeros((1, dim)), requires_grad=True)
 
+    def reset_scale(self):
+        if torch.isnan(self.scale).any():
+            nn.init.constant_(self.scale, torch.nanmean(self.scale))
+
     def forward(self, x, reverse=False):
         """Forward pass.
 
@@ -83,6 +105,9 @@ class Scaling(nn.Module):
         Returns:
             transformed tensor and log-determinant of Jacobian.
         """
+
+        self.reset_scale()
+
         log_det_J = torch.sum(self.scale)
         if reverse:
             x = x * torch.exp(-self.scale)
@@ -127,11 +152,15 @@ class NICE_PT(nn.Module):
         Returns:
             transformed tensor in data space X.
         """
+        z = z.clamp(max=1-1e-5)
         x = self.sigmoid_projection.inverse(z)
         x, _ = self.scaling(x, reverse=True)
 
         for i in reversed(range(len(self.coupling))):
             x = self.coupling[i](x, reverse=True)
+
+        assert not torch.isnan(x).any()
+
         return x
 
     def f(self, x):
@@ -144,7 +173,16 @@ class NICE_PT(nn.Module):
         """
         for i in range(len(self.coupling)):
             x = self.coupling[i](x)
-        x, log_scale = self.scaling(x)
+            x = nn.functional.normalize(x, dim=1)
+            x = x.clamp(max=torch.max(x[~torch.isinf(x)]))
+
+        x_ = x
+
+        x, log_scale = self.scaling(x_)
+
+        assert not torch.isnan(x).any()
+        assert not torch.isinf(x).any()
+
         x, log_sigmoid = self.sigmoid_projection(x)
         return x, log_scale, log_sigmoid
 
