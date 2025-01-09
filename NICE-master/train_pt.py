@@ -70,7 +70,9 @@ def main(args):
     #         torch.tensor(0.).to(device), torch.tensor(1.).to(device))
     # elif latent == 'logistic':
     #     prior = utils.StandardLogistic()
-
+    latent = 'polyatree'
+    warmup_prior = torch.distributions.Normal(
+             torch.tensor(0.).to(device), torch.tensor(1.).to(device))
     prior = PolyaTree(L = 4, dim = full_dim, device = device)
 
     filename = '%s_' % dataset \
@@ -80,18 +82,24 @@ def main(args):
                + 'md%d_' % mid_dim \
                + 'hd%d_' % hidden
 
-    flow = nice_pt.NICE_PT(prior=prior,
+    flow = nice_pt.NICE_PT(warmup_prior=warmup_prior,
+                     prior=prior,
                      coupling=coupling,
                      in_out_dim=full_dim,
                      mid_dim=mid_dim,
                      hidden=hidden,
-                     mask_config=mask_config, device=device).to(device)
-    optimizer = torch.optim.Adam(
+                     mask_config=mask_config, warm_up = True, device=device).to(device)
+    warmup_optimizer = torch.optim.Adam(
         flow.parameters(), lr=lr, betas=(momentum, decay), eps=1e-4)
+    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, flow.parameters()), lr=1e-2,
+                                 betas=(momentum, decay), eps=1e-4
+                                 )
 
     total_iter = 0
     train = True
     running_loss = 0
+
+    warm_up = int(args.warm * max_iter)
 
     while train:
         for _, data in enumerate(trainloader, 1):
@@ -101,19 +109,28 @@ def main(args):
                 break
 
             total_iter += 1
-            optimizer.zero_grad()  # clear gradient tensors
+            if total_iter <= warm_up:
+                warmup_optimizer.zero_grad()  # clear gradient tensors
+            else:
+                optimizer.zero_grad()
 
             inputs, _ = data
             inputs = utils.prepare_data(
                 inputs, dataset, zca=zca, mean=mean).to(device)
 
             # log-likelihood of input minibatch
+            if total_iter == warm_up:
+                print('End warm up at iter %d' % total_iter)
+                flow.end_warmup()
             loss = -flow(inputs).mean()
             running_loss += float(loss)
 
             # backprop and update parameters
             loss.backward()
-            optimizer.step()
+            if total_iter <= warm_up:
+                warmup_optimizer.step()
+            else:
+                optimizer.step()
 
             if total_iter % 1000 == 0:
                 mean_loss = running_loss / 1000
@@ -126,7 +143,10 @@ def main(args):
 
                 flow.eval()  # set to inference mode
                 with torch.no_grad():
-                    z, _, _ = flow.f(inputs)
+                    if total_iter > warm_up:
+                        z, _, _ = flow.f(inputs)
+                    else:
+                        z, _ = flow.f(inputs)
                     z = z.to(device)
                     reconst = flow.g(z).cpu()
                     reconst = utils.prepare_data(
@@ -192,6 +212,7 @@ if __name__ == '__main__':
                         type=float,
                         default=0.999)
     parser.add_argument('--device', default='cpu', help='cuda or cpu.')
+    parser.add_argument('--warm', default=0.9, type=float)
     args = parser.parse_args()
     main(args)
 

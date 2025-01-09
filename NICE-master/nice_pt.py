@@ -93,8 +93,8 @@ class Scaling(nn.Module):
 """NICE main model.
 """
 class NICE_PT(nn.Module):
-    def __init__(self, prior, coupling,
-        in_out_dim, mid_dim, hidden, mask_config, device):
+    def __init__(self, warmup_prior, prior, coupling,
+        in_out_dim, mid_dim, hidden, mask_config, warm_up, device):
         """Initialize a NICE.
 
         Args:
@@ -106,6 +106,7 @@ class NICE_PT(nn.Module):
             mask_config: 1 if transform odd units, 0 if transform even units.
         """
         super(NICE_PT, self).__init__()
+        self.warmup_prior = warmup_prior
         self.prior = prior
         self.in_out_dim = in_out_dim
 
@@ -118,6 +119,7 @@ class NICE_PT(nn.Module):
         self.scaling = Scaling(in_out_dim).to(device)
         self.sigmoid_projection = sigmoid_projection().to(device)
         self.device = device
+        self.warm_up = warm_up
 
     def g(self, z):
         """Transformation g: Z -> X (inverse of f).
@@ -127,7 +129,10 @@ class NICE_PT(nn.Module):
         Returns:
             transformed tensor in data space X.
         """
-        x = self.sigmoid_projection.inverse(z)
+        if self.warm_up:
+            x = z
+        else:
+            x = self.sigmoid_projection.inverse(z)
         x, _ = self.scaling(x, reverse=True)
 
         for i in reversed(range(len(self.coupling))):
@@ -143,10 +148,25 @@ class NICE_PT(nn.Module):
             transformed tensor in latent space Z.
         """
         for i in range(len(self.coupling)):
+            # Check for NaN values
+            nan_check = torch.isnan(x)
+            contains_nan = nan_check.any()
+            if contains_nan.item():
+                print("\nnan value before {}".format(i))
+                sys.exit()
             x = self.coupling[i](x)
+        # Check for NaN values
+        nan_check = torch.isnan(x)
+        contains_nan = nan_check.any()
+        if contains_nan.item():
+            print("\nnan value before scaling", contains_nan.item())
+            sys.exit()
         x, log_scale = self.scaling(x)
-        x, log_sigmoid = self.sigmoid_projection(x)
-        return x, log_scale, log_sigmoid
+        if self.warm_up:
+            return x, log_scale
+        else:
+            x, log_sigmoid = self.sigmoid_projection(x)
+            return x, log_scale, log_sigmoid
 
     def log_prob(self, x):
         """Computes data log-likelihood.
@@ -158,11 +178,14 @@ class NICE_PT(nn.Module):
         Returns:
             log-likelihood of input.
         """
-        z, log_scale, log_sigmoid = self.f(x)
-        log_ll = self.prior(z)
-        #log_ll = torch.sum(self.prior.log_prob(z), dim=1)
-        #print(log_ll.mean(), log_scale.mean(), log_sigmoid.mean())
-        return log_ll + log_scale + log_sigmoid
+        if self.warm_up:
+            z, log_scale = self.f(x)
+            log_ll = torch.sum(self.warmup_prior.log_prob(z), dim=1)
+            return log_ll + log_scale
+        else:
+            z, log_scale, log_sigmoid = self.f(x)
+            log_ll = self.prior(z)
+            return log_ll + log_scale + log_sigmoid
 
     def sample(self, size):
         """Generates samples.
@@ -172,7 +195,10 @@ class NICE_PT(nn.Module):
         Returns:
             samples from the data space X.
         """
-        z = self.prior.sample(size).to(self.device)
+        if self.warm_up:
+            z = self.warmup_prior.sample((size, self.in_out_dim)).to(self.device)
+        else:
+            z = self.prior.sample(size).to(self.device)
         return self.g(z)
 
     def forward(self, x):
@@ -184,3 +210,10 @@ class NICE_PT(nn.Module):
             log-likelihood of input.
         """
         return self.log_prob(x)
+
+    def end_warmup(self):
+        self.warm_up = False
+        for param in self.coupling.parameters():
+            param.requires_grad = False
+        for param in self.scaling.parameters():
+            param.requires_grad = False
