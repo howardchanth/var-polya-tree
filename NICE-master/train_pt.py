@@ -70,7 +70,7 @@ def main(args):
     #         torch.tensor(0.).to(device), torch.tensor(1.).to(device))
     # elif latent == 'logistic':
     #     prior = utils.StandardLogistic()
-    latent = 'polyatree'
+    #latent = 'polyatree'
     warmup_prior = torch.distributions.Normal(
              torch.tensor(0.).to(device), torch.tensor(1.).to(device))
     prior = PolyaTree(L = 4, dim = full_dim, device = device)
@@ -190,7 +190,7 @@ if __name__ == '__main__':
     parser.add_argument('--latent',
                         help='latent distribution.',
                         type=str,
-                        default='logistic')
+                        default='polyatree')
     parser.add_argument('--max_iter',
                         help='maximum number of iterations.',
                         type=int,

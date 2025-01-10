@@ -170,7 +170,7 @@ def plot_density2d(model, args, limit=4, step=0.01):
         plt.savefig(
             os.path.join(
                 args.load or args.path, "{}.jpg".format(datetime.datetime.now())
-            )
+            ), dpi = 300, bbox_inches="tight"
         )
     else:
         plt.show()
@@ -259,7 +259,7 @@ def main():
 
     if (args.save or args.savefig) and not args.load:
         print("Creating directory experiment..")
-        os.mkdir(args.path)
+        os.makedirs(args.path)
         with open(os.path.join(args.path, "args.json"), "w") as f:
             json.dump(args.__dict__, f, indent=4, sort_keys=True)
 

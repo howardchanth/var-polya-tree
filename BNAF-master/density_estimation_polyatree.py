@@ -11,6 +11,8 @@ from tqdm import tqdm
 from optim.adam import Adam
 from optim.lr_scheduler import ReduceLROnPlateau
 
+from pathlib import Path
+
 from data.gas import GAS
 from data.bsds300 import BSDS300
 from data.hepmass import HEPMASS
@@ -210,6 +212,8 @@ def train(
         warm = True
     else:
         warm = False
+        for param in model.parameters():
+            param.requires_grad = False
     for epoch in range(args.start_epoch, args.end_epoch):
         t = tqdm(data_loader_train, smoothing=0, ncols=80)
         train_loss = []
@@ -292,11 +296,11 @@ def main():
     )
 
     parser.add_argument("--learning_rate", type=float, default=1e-2)
-    parser.add_argument("--pt_learning_rate", type=float, default=1e-4)
+    parser.add_argument("--pt_learning_rate", type=float, default=1e-1)
     parser.add_argument("--batch_dim", type=int, default=200)
     parser.add_argument("--clip_norm", type=float, default=0.1)
     parser.add_argument("--epochs", type=int, default=1000)
-    parser.add_argument("--warmup_ratio", type=float, default=0.0)
+    parser.add_argument("--warmup_ratio", type=float, default=0.9)
 
     parser.add_argument("--patience", type=int, default=20)
     parser.add_argument("--cooldown", type=int, default=10)
@@ -316,7 +320,7 @@ def main():
 
     parser.add_argument("--expname", type=str, default="")
     parser.add_argument("--load", type=str, default=None)
-    parser.add_argument("--save", type = bool, default = False)
+    parser.add_argument("--save", type = bool, default = True)
     parser.add_argument("--tensorboard", type=str, default="tensorboard")
 
     args = parser.parse_args()
@@ -324,25 +328,26 @@ def main():
     print("Arguments:")
     pprint.pprint(args.__dict__)
 
-    # args.path = os.path.join(
-    #     "checkpoint",
-    #     "{}{}_layers{}_h{}_flows{}{}_{}".format(
-    #         args.expname + ("_" if args.expname != "" else ""),
-    #         args.dataset,
-    #         args.layers,
-    #         args.hidden_dim,
-    #         args.flows,
-    #         "_" + args.residual if args.residual else "",
-    #         str(datetime.datetime.now())[:-7].replace(" ", "-").replace(":", "-"),
-    #     ),
-    # )
-    args.path = "checkpoint"
+    args.path = os.path.join(
+        "checkpoint",
+        "{}{}_layers{}_h{}_flows{}{}_{}".format(
+            args.expname + ("_" if args.expname != "" else ""),
+            args.dataset,
+            args.layers,
+            args.hidden_dim,
+            args.flows,
+            "_" + args.residual if args.residual else "",
+            str(datetime.datetime.now())[:-7].replace(" ", "-").replace(":", "-"),
+        ),
+    )
+    #args.path = "checkpoint"
 
     print("Loading dataset..")
     data_loader_train, data_loader_valid, data_loader_test = load_dataset(args)
 
     if args.save and not args.load:
-        print("Creating directory experiment..")
+
+
         os.mkdir(args.path)
         with open(os.path.join(args.path, "args.json"), "w") as f:
             json.dump(args.__dict__, f, indent=4, sort_keys=True)
@@ -358,8 +363,7 @@ def main():
         amsgrad=True, polyak=args.polyak
     )
     optimizer = Adam(
-        [{'params': model.parameters(), 'lr': args.learning_rate},
-            {'params': polyatree.parameters(), 'lr' : args.pt_learning_rate},],
+        [{'params': polyatree.parameters(), 'lr' : args.pt_learning_rate},],
        amsgrad=True, polyak=args.polyak
     )
 
@@ -380,17 +384,17 @@ def main():
     args.end_epoch = args.warmup_epoch
     if args.load:
         load_model(model, optimizer, args, load_start_epoch=True)()
-    #
-    # print("Warmup Training..")
-    # train(
-    #     model, sigmoid_layer, polyatree,
-    #     optimizer_warm,
-    #     scheduler,
-    #     data_loader_train,
-    #     data_loader_valid,
-    #     data_loader_test,
-    #     args,
-    # )
+
+    print("Warmup Training..")
+    train(
+        model, sigmoid_layer, polyatree,
+        optimizer_warm,
+        scheduler,
+        data_loader_train,
+        data_loader_valid,
+        data_loader_test,
+        args,
+    )
 
     print("PT Training..")
     args.start_epoch = args.warmup_epoch

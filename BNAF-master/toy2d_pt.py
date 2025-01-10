@@ -227,7 +227,7 @@ def main():
         "--experiment", type=str, default="density2d", choices=["density2d", "energy2d"]
     )
 
-    parser.add_argument("--learning_rate", type=float, default=1e-1)
+    parser.add_argument("--learning_rate", type=float, default=1e-2)
     parser.add_argument("--batch_dim", type=int, default=200)
     parser.add_argument("--clip_norm", type=float, default=0.1)
     parser.add_argument("--steps", type=int, default=20000)
@@ -236,7 +236,7 @@ def main():
     parser.add_argument("--decay", type=float, default=0.5)
 
     parser.add_argument("--flows", type=int, default=1)
-    parser.add_argument("--layers", type=int, default=4)
+    parser.add_argument("--layers", type=int, default=3)
     parser.add_argument("--hidden_dim", type=int, default=50)
 
     parser.add_argument("--tree_level", type=int, default=4)
@@ -254,26 +254,27 @@ def main():
 
     args.path = os.path.join(
         "checkpoint",
-        "{}{}_layers{}_h{}_flows{}_{}".format(
+        "{}{}_layers{}_h{}_flows{}_PT{}_{}".format(
             args.expname + ("_" if args.expname != "" else ""),
             args.dataset,
             args.layers,
             args.hidden_dim,
             args.flows,
+            args.tree_level,
             str(datetime.datetime.now())[:-7].replace(" ", "-").replace(":", "-"),
         ),
     )
 
     if (args.save or args.savefig) and not args.load:
         print("Creating directory experiment..")
-        os.mkdir(args.path)
+        os.makedirs(args.path)
         with open(os.path.join(args.path, "args.json"), "w") as f:
             json.dump(args.__dict__, f, indent=4, sort_keys=True)
 
     print("Creating BNAF model..")
     model = create_model(args, verbose=True)
     sigmoid_layer = sigmoid_projection().to(args.device)
-    polyatree = PolyaTree(args.tree_level, 2).to(args.device)
+    polyatree = PolyaTree(args.tree_level, 2, args.device).to(args.device)
 
     print("Creating optimizer..")
     optimizer = torch.optim.Adam(
