@@ -49,8 +49,8 @@ class sigmoid_projection(nn.Module):
         return output, log_det_Jac
 
     def inverse(self, y):
-        if torch.any(y <= 0) or torch.any(y > 1):
+        if torch.any(y < 0) or torch.any(y > 1):
             raise ValueError("Input to inverse must be in the range (0, 1).")
-        return torch.log(y / (1 - y + 1e-8))
+        return torch.log(y / (1 - y + 1e-8) + 1e-8)
 
 

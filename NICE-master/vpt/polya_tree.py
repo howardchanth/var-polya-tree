@@ -353,6 +353,19 @@ class PolyaTree(nn.Module):
 
         return generated_samples
 
+    def get_variance(self):
+        num_end_nodes = 2 ** self.L
+        print(self.L, num_end_nodes)
+        end_shapes, end_scales = log1p_exp(self.shapes)[:,-num_end_nodes:-1], log1p_exp(self.scales)[:,-num_end_nodes:-1]
+        print(end_shapes)
+        print(end_scales)
+        node_variances = (end_shapes * end_scales) / ((end_shapes + end_scales) ** 2 * (end_shapes + end_scales + 1))
+        print(node_variances)
+        variances = torch.sum(node_variances, dim = 1)
+        return variances
+
+
+
     def kl(self):
         # TODO Seems the posterior part is a bit duplicated with the likelihood
         kl = 0
